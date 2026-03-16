@@ -42,6 +42,9 @@ get_today()  # concise=True, limit=10 by default
 ```
 add_todo(title="Buy groceries", when="today", tags=["errands"])
 ```
+Dedup is on by default — if an open todo with a similar title exists, the
+existing task is returned instead of creating a duplicate. Pass
+`deduplicate=false` only when you are certain the task is new.
 
 ### Find and update a task
 ```
