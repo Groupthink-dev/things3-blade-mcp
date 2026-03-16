@@ -10,7 +10,7 @@ import json
 import logging
 import os
 import subprocess
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 import things
 
@@ -65,7 +65,7 @@ def construct_url(command: str, params: dict) -> str:
         else:
             logger.warning("No auth token available for %s — update may fail", command)
 
-    query = urlencode(clean, quote_via=lambda s, *_a, **_kw: s)
+    query = urlencode(clean, quote_via=lambda s, *_a, **_kw: quote(s, safe=""))
     return f"things:///{command}?{query}"
 
 

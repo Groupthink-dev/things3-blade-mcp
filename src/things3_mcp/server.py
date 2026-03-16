@@ -88,6 +88,50 @@ def _todo_counts_for_projects() -> dict[str, dict[str, int]]:
     return counts
 
 
+def _normalise_title(title: str) -> str:
+    """Normalise a task title for fuzzy comparison.
+
+    Strips common prefixes, collapses whitespace, lowercases, removes
+    trailing punctuation. Designed to catch near-duplicate tasks created
+    by different dispatch runs with slightly different wording.
+    """
+    import re
+    t = title.lower().strip()
+    # Strip common action prefixes added by skills
+    t = re.sub(r"^(review|pay|check|file|schedule|follow up|reply to|open|authorise|verify)\s*:\s*", "", t)
+    # Collapse whitespace and strip trailing punctuation
+    t = re.sub(r"\s+", " ", t).strip().rstrip(".")
+    return t
+
+
+def _find_duplicate_todo(title: str) -> dict | None:
+    """Search open todos for a duplicate of the given title.
+
+    Uses things.search() for candidate retrieval, then normalised title
+    comparison. Returns the first matching todo dict, or None.
+    """
+    normalised = _normalise_title(title)
+    if not normalised:
+        return None
+
+    try:
+        # Search with first few significant words to get candidates
+        search_words = normalised.split()[:4]
+        candidates = things.search(" ".join(search_words)) or []
+
+        for item in candidates:
+            # Only match open (incomplete) todos
+            if item.get("status") == "completed" or item.get("status") == "canceled":
+                continue
+            candidate_norm = _normalise_title(item.get("title", ""))
+            if candidate_norm == normalised:
+                return item
+    except Exception:
+        logger.debug("Dedup search failed, proceeding with creation", exc_info=True)
+
+    return None
+
+
 # ===========================================================================
 # LIST VIEW TOOLS
 # ===========================================================================
@@ -640,6 +684,11 @@ def add_todo(
         list[str] | None,
         Field(description="Subtask items (uses URL scheme fallback since AppleScript cannot create checklist items)"),
     ] = None,
+    deduplicate: Annotated[
+        bool,
+        Field(description="Check for existing open todos with similar titles before creating. "
+              "Returns existing todo instead of creating a duplicate. Default: true"),
+    ] = True,
 ) -> str:
     """Create a new todo in Things 3.
 
@@ -649,6 +698,17 @@ def add_todo(
     Tip: For subtasks, either pass checklist_items (URL scheme) or put Markdown
     checkboxes in notes: '- [ ] subtask 1\\n- [ ] subtask 2'
     """
+    # Dedup check: search for existing open todos with similar titles
+    if deduplicate:
+        existing = _find_duplicate_todo(title)
+        if existing:
+            uuid = existing.get("uuid", "?")[:8]
+            existing_title = existing.get("title", title)
+            return (
+                f"Skipped — duplicate found: '{existing_title}' (UUID: {uuid}…). "
+                f"Use deduplicate=false to force creation."
+            )
+
     # If checklist_items requested, must use URL scheme (AppleScript can't do it)
     if checklist_items:
         result_url = url_scheme.add_todo_url(
