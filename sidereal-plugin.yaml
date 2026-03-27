@@ -1,0 +1,39 @@
+name: things-3-mcp
+version: "0.1.0"
+description: "Things 3 task management via AppleScript and URL scheme — macOS only"
+author: piersdd
+licence: MIT
+tier: certified
+homepage: https://github.com/piersdd/things-3-mcp
+contract: tasks-v1
+
+services:
+  tasks:
+    list: get_todos
+    search: search_todos
+    projects: get_projects
+    today: get_today
+    inbox: get_inbox
+    tags: get_tags
+    summary: get_summary
+    logbook: get_logbook
+    create: add_todo
+    update: update_todo
+    # complete maps to update_todo with completed: true
+    complete: update_todo
+
+install:
+  runtime: uv
+  package: things-3-mcp
+  command: things-3-mcp
+
+env: []
+
+requires:
+  sidereal: ">=0.3.0"
+
+conformance:
+  required: "3/3"
+  recommended: "4/4"
+  optional: "1/1"
+  last_tested: "2026-03-25"
