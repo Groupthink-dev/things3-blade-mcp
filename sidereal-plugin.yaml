@@ -22,6 +22,18 @@ services:
     # complete maps to update_todo with completed: true
     complete: update_todo
 
+setup:
+  icon: "\u2705"
+  blurb: "Access Things 3 tasks, projects, areas, and tags via AppleScript and URL scheme."
+  auth_model: none
+  complexity: trivial
+  test:
+    endpoint: "file://~/Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac/Things Database.thingsdatabase/main.sqlite"
+    auth_style: none
+  prerequisites:
+    - "macOS only"
+    - "Things 3 installed from Mac App Store"
+
 install:
   runtime: uv
   package: things-3-mcp
