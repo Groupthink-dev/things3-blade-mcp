@@ -29,8 +29,8 @@ Built to be the most capable and efficient Things integration for Claude Desktop
 
 ```bash
 # Clone and install
-git clone https://github.com/piersdd/things-3-mcp.git
-cd things-3-mcp
+git clone https://github.com/Groupthink-dev/things3-blade-mcp.git
+cd things3-blade-mcp
 uv sync
 
 # Run (stdio transport — for Claude Desktop)
@@ -46,7 +46,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
   "mcpServers": {
     "things3": {
       "command": "uv",
-      "args": ["run", "--directory", "/path/to/things-3-mcp", "things3-mcp"]
+      "args": ["run", "--directory", "/path/to/things3-blade-mcp", "things3-mcp"]
     }
   }
 }
@@ -56,7 +56,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```bash
 # Add as MCP server
-claude mcp add things3 -- uv run --directory /path/to/things-3-mcp things3-mcp
+claude mcp add things3 -- uv run --directory /path/to/things3-blade-mcp things3-mcp
 ```
 
 ## Token-Saving Tips
