@@ -4,6 +4,8 @@ description: "Things 3 task management via AppleScript and URL scheme — macOS 
 author: piersdd
 licence: MIT
 tier: certified
+author_type: first-party
+readiness: beta
 homepage: https://github.com/piersdd/things-3-mcp
 contract: tasks-v1
 
