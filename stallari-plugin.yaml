@@ -1,5 +1,5 @@
 name: things3-blade-mcp
-version: "0.1.0"
+version: "0.1.1"
 description: "Things 3 task management via AppleScript and URL scheme — macOS only"
 author: piersdd
 licence: MIT
