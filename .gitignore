@@ -15,4 +15,3 @@ venv/
 .ruff_cache/
 htmlcov/
 .coverage
-uv.lock
