@@ -1,11 +1,11 @@
 {
-  "name": "things3-mcp",
+  "name": "things3-blade-mcp",
   "version": "0.1.0",
   "description": "Things 3 MCP Server — token-efficient, full CRUD, AppleScript + URL scheme",
   "author": "Piers",
   "license": "MIT",
   "runtime": "python",
-  "entry_point": "things3-mcp",
+  "entry_point": "things3-blade-mcp",
   "environment_variables": {
     "THINGS_MCP_TRANSPORT": {
       "description": "Transport mode: 'stdio' (default) or 'http'",

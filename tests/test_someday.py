@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from things3_mcp.someday import (
+from things3_blade_mcp.someday import (
     augment_someday_tasks,
     filter_someday_tasks,
     get_someday_context,
@@ -12,7 +12,7 @@ from things3_mcp.someday import (
 
 
 class TestSomedayContext:
-    @patch("things3_mcp.someday.things")
+    @patch("things3_blade_mcp.someday.things")
     def test_builds_context(self, mock_things):
         mock_things.projects.return_value = [
             {"uuid": "someday-proj-1"},
@@ -37,7 +37,7 @@ class TestSomedayContext:
             "heading-3": "someday-proj-2",
         }
 
-    @patch("things3_mcp.someday.things")
+    @patch("things3_blade_mcp.someday.things")
     def test_empty_context(self, mock_things):
         mock_things.projects.return_value = []
         project_ids, heading_map = get_someday_context()
@@ -73,7 +73,7 @@ class TestFilterSomedayTasks:
 
 
 class TestAugmentSomedayTasks:
-    @patch("things3_mcp.someday.things")
+    @patch("things3_blade_mcp.someday.things")
     def test_adds_anytime_tasks_from_someday_projects(self, mock_things):
         ctx = ({"someday-proj"}, {})
         mock_things.anytime.return_value = [
@@ -87,7 +87,7 @@ class TestAugmentSomedayTasks:
         assert "anytime-1" in uuids
         assert "anytime-2" not in uuids
 
-    @patch("things3_mcp.someday.things")
+    @patch("things3_blade_mcp.someday.things")
     def test_deduplicates(self, mock_things):
         ctx = ({"someday-proj"}, {})
         mock_things.anytime.return_value = [

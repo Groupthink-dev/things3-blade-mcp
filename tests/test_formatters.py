@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from things3_mcp.formatters import (
+from things3_blade_mcp.formatters import (
     build_area_lookup,
     build_project_lookup,
     format_area_concise,

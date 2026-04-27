@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from things3_mcp.server import (
+from things3_blade_mcp.server import (
     get_inbox,
     get_random_inbox,
     get_summary,
@@ -29,7 +29,7 @@ _json_export = json_export.fn
 
 
 class TestListViewTools:
-    @patch("things3_mcp.server.things")
+    @patch("things3_blade_mcp.server.things")
     def test_get_inbox_concise(self, mock_things):
         mock_things.inbox.return_value = [
             {"uuid": "aaa-bbb", "title": "Task 1", "status": "incomplete"},
@@ -40,14 +40,14 @@ class TestListViewTools:
         assert "Task 1" in result
         assert "Task 2" in result
 
-    @patch("things3_mcp.server.things")
+    @patch("things3_blade_mcp.server.things")
     def test_get_inbox_empty(self, mock_things):
         mock_things.inbox.return_value = []
         mock_things.projects.return_value = []
         result = _get_inbox(concise=True, limit=10)
         assert "No items found" in result
 
-    @patch("things3_mcp.server.things")
+    @patch("things3_blade_mcp.server.things")
     def test_get_inbox_respects_limit(self, mock_things):
         mock_things.inbox.return_value = [
             {"uuid": f"id-{i}", "title": f"Task {i}", "status": "incomplete"}
@@ -57,8 +57,8 @@ class TestListViewTools:
         result = _get_inbox(concise=True, limit=5)
         assert "45 more" in result
 
-    @patch("things3_mcp.server.get_someday_context")
-    @patch("things3_mcp.server.things")
+    @patch("things3_blade_mcp.server.get_someday_context")
+    @patch("things3_blade_mcp.server.things")
     def test_get_today_filters_someday(self, mock_things, mock_ctx):
         mock_ctx.return_value = ({"someday-proj"}, {})
         mock_things.today.return_value = [
@@ -74,7 +74,7 @@ class TestListViewTools:
 
 
 class TestRandomSamplingTools:
-    @patch("things3_mcp.server.things")
+    @patch("things3_blade_mcp.server.things")
     def test_get_random_inbox(self, mock_things):
         mock_things.inbox.return_value = [
             {"uuid": f"id-{i}", "title": f"Task {i}", "status": "incomplete"}
@@ -89,7 +89,7 @@ class TestRandomSamplingTools:
 
 
 class TestSearchTools:
-    @patch("things3_mcp.server.things")
+    @patch("things3_blade_mcp.server.things")
     def test_search_todos(self, mock_things):
         mock_things.search.return_value = [
             {"uuid": "found-1", "title": "Meeting notes", "status": "incomplete"},
@@ -100,7 +100,7 @@ class TestSearchTools:
 
 
 class TestDetailTools:
-    @patch("things3_mcp.server.things")
+    @patch("things3_blade_mcp.server.things")
     def test_show_item_todo(self, mock_things):
         mock_things.get.return_value = {
             "uuid": "abc-123",
@@ -115,7 +115,7 @@ class TestDetailTools:
         assert "Title: My Todo" in result
         assert "Notes: Some notes" in result
 
-    @patch("things3_mcp.server.things")
+    @patch("things3_blade_mcp.server.things")
     def test_show_item_not_found(self, mock_things):
         mock_things.get.return_value = None
         result = _show_item(uuid="nonexistent")
@@ -123,8 +123,8 @@ class TestDetailTools:
 
 
 class TestSummaryTool:
-    @patch("things3_mcp.server.get_someday_context", return_value=(set(), {}))
-    @patch("things3_mcp.server.things")
+    @patch("things3_blade_mcp.server.get_someday_context", return_value=(set(), {}))
+    @patch("things3_blade_mcp.server.things")
     def test_get_summary(self, mock_things, _mock_ctx):
         mock_things.inbox.return_value = [{"uuid": "1"}] * 5
         mock_things.today.return_value = [{"uuid": "2", "project": None, "heading": None}] * 3
@@ -143,7 +143,7 @@ class TestSummaryTool:
 
 
 class TestExportTool:
-    @patch("things3_mcp.server.things")
+    @patch("things3_blade_mcp.server.things")
     def test_json_export(self, mock_things):
         mock_things.todos.return_value = [
             {"uuid": "aaa", "title": "Task 1", "status": "incomplete", "tags": ["work"]},

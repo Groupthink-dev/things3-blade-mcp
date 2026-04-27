@@ -9,7 +9,7 @@ Batch-lookup design: caller provides lookup dicts to avoid N+1 queries.
 
 from __future__ import annotations
 
-from things3_mcp.models import SHORT_UUID_LEN, STATUS_ICONS
+from things3_blade_mcp.models import SHORT_UUID_LEN, STATUS_ICONS
 
 # ---------------------------------------------------------------------------
 # Lookup builders — call once per tool invocation, pass to formatters

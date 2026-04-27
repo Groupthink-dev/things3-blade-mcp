@@ -15,8 +15,8 @@ import things
 from fastmcp import FastMCP
 from pydantic import Field
 
-from things3_mcp import applescript, url_scheme
-from things3_mcp.formatters import (
+from things3_blade_mcp import applescript, url_scheme
+from things3_blade_mcp.formatters import (
     build_area_lookup,
     build_project_lookup,
     format_area_concise,
@@ -29,9 +29,9 @@ from things3_mcp.formatters import (
     format_todo_detailed,
     format_todo_list,
 )
-from things3_mcp.models import DEFAULT_LIMIT, DEFAULT_SAMPLE_COUNT
-from things3_mcp.sampling import random_sample
-from things3_mcp.someday import augment_someday_tasks, filter_someday_tasks, get_someday_context
+from things3_blade_mcp.models import DEFAULT_LIMIT, DEFAULT_SAMPLE_COUNT
+from things3_blade_mcp.sampling import random_sample
+from things3_blade_mcp.someday import augment_someday_tasks, filter_someday_tasks, get_someday_context
 
 logger = logging.getLogger(__name__)
 
@@ -978,7 +978,7 @@ def main():
     if TRANSPORT == "http":
         from starlette.middleware import Middleware
 
-        from things3_mcp.auth import BearerAuthMiddleware, get_api_key, get_bearer_token
+        from things3_blade_mcp.auth import BearerAuthMiddleware, get_api_key, get_bearer_token
 
         bearer = get_bearer_token()
         api_key = get_api_key()

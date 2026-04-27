@@ -34,7 +34,7 @@ cd things3-blade-mcp
 uv sync
 
 # Run (stdio transport — for Claude Desktop)
-uv run things3-mcp
+uv run things3-blade-mcp
 ```
 
 ### Claude Desktop configuration
@@ -46,7 +46,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
   "mcpServers": {
     "things3": {
       "command": "uv",
-      "args": ["run", "--directory", "/path/to/things3-blade-mcp", "things3-mcp"]
+      "args": ["run", "--directory", "/path/to/things3-blade-mcp", "things3-blade-mcp"]
     }
   }
 }
@@ -56,7 +56,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```bash
 # Add as MCP server
-claude mcp add things3 -- uv run --directory /path/to/things3-blade-mcp things3-mcp
+claude mcp add things3 -- uv run --directory /path/to/things3-blade-mcp things3-blade-mcp
 ```
 
 ## Token-Saving Tips
@@ -138,7 +138,7 @@ export THINGS_MCP_PORT=8765
 export THINGS_MCP_API_KEY=your-secret-key-here  # auto-generated if empty
 
 # Run
-uv run things3-mcp
+uv run things3-blade-mcp
 ```
 
 ### Bearer Token Authentication
@@ -206,7 +206,7 @@ curl -X POST http://localhost:8765/mcp \
 ## Architecture
 
 ```
-src/things3_mcp/
+src/things3_blade_mcp/
 ├── server.py       # FastMCP instance + all 30 @mcp.tool definitions
 ├── formatters.py   # Two-tier output: concise (1-line) + detailed
 ├── someday.py      # Someday filtering (matches Things UI behavior)

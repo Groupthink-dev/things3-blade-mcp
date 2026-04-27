@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from things3_mcp.sampling import random_sample
+from things3_blade_mcp.sampling import random_sample
 
 
 class TestRandomSample:
