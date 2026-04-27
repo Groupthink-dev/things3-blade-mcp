@@ -1,5 +1,5 @@
 [project]
-name = "things3-mcp"
+name = "things3-blade-mcp"
 version = "0.1.1"
 description = "Best-in-class MCP server for Things 3 — token-efficient, full CRUD, AppleScript + URL scheme"
 readme = "README.md"
@@ -34,7 +34,7 @@ dev = [
 ]
 
 [project.scripts]
-things3-mcp = "things3_mcp.server:main"
+things3-blade-mcp = "things3_mcp.server:main"
 
 [build-system]
 requires = ["hatchling"]
