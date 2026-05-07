@@ -40,6 +40,8 @@ install:
   runtime: uv
   package: things3-blade-mcp
   command: things3-blade-mcp
+  # DD-242 Phase C: stdio-only. No HTTP mode shipped; the binary cannot bind a port.
+  network_transport: []
 
 env: []
 
