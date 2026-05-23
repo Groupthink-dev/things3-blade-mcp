@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import json
+
 from things3_blade_mcp.formatters import (
+    append_meta,
     build_area_lookup,
     build_project_lookup,
     format_area_concise,
+    format_meta,
     format_project_concise,
     format_tag_concise,
     format_todo_concise,
@@ -133,3 +137,82 @@ class TestLookupBuilders:
         ]
         lookup = build_area_lookup(areas)
         assert lookup == {"x": "Work", "y": "Personal"}
+
+
+# ---------------------------------------------------------------------------
+# DD-338 C W4 — _meta envelope helper tests
+# ---------------------------------------------------------------------------
+
+
+class TestFormatMeta:
+    """Verify the canonical _meta JSON-tail wire shape (parity with mastodon-blade-mcp)."""
+
+    def test_format_meta_required_keys(self):
+        out = format_meta(
+            matched_total=10,
+            returned=3,
+            filtered_by=["pool=inbox", "count=3", "sample=random"],
+            latency_ms=42,
+        )
+        assert out.startswith("_meta: ")
+        meta = json.loads(out[len("_meta: ") :])
+        for key in ("matched_total", "returned", "filtered_by", "redactions", "next_cursor", "latency_ms"):
+            assert key in meta
+        assert meta["matched_total"] == 10
+        assert meta["returned"] == 3
+        assert meta["filtered_by"] == ["pool=inbox", "count=3", "sample=random"]
+        assert meta["redactions"] == []
+        assert meta["next_cursor"] is None
+        assert meta["latency_ms"] == 42
+
+    def test_format_meta_single_line_json(self):
+        """Assembler regex `\\n\\n_meta: (\\{.*\\})$` requires single-line JSON."""
+        out = format_meta(
+            matched_total=5,
+            returned=5,
+            filtered_by=["limit=5"],
+            redactions=["scope=personal_unconfigured"],
+            next_cursor="next-99",
+            latency_ms=12,
+            error_notes=["partial"],
+        )
+        assert "\n" not in out
+
+    def test_format_meta_error_notes_optional(self):
+        # error_notes omitted when None/empty.
+        out = format_meta(matched_total=0, returned=0, filtered_by=[], latency_ms=0)
+        meta = json.loads(out[len("_meta: ") :])
+        assert "error_notes" not in meta
+
+    def test_format_meta_error_notes_included(self):
+        out = format_meta(
+            matched_total=1,
+            returned=1,
+            filtered_by=[],
+            latency_ms=0,
+            error_notes=["partial_success"],
+        )
+        meta = json.loads(out[len("_meta: ") :])
+        assert meta["error_notes"] == ["partial_success"]
+
+
+class TestAppendMeta:
+    """Verify the canonical `\\n\\n` separator between payload and _meta block."""
+
+    def test_append_meta_separator(self):
+        body = "Random 3 of 10 inbox items:\n- t1\n- t2\n- t3"
+        meta = format_meta(matched_total=10, returned=3, filtered_by=[], latency_ms=1)
+        out = append_meta(body, meta)
+        assert out == body + "\n\n" + meta
+        assert "\n\n_meta: " in out
+
+    def test_assembler_regex_matches(self):
+        import re
+
+        body = "payload body"
+        meta = format_meta(matched_total=1, returned=1, filtered_by=["k=v"], latency_ms=0)
+        out = append_meta(body, meta)
+        m = re.search(r"\n\n_meta: (\{.*\})$", out)
+        assert m is not None
+        parsed = json.loads(m.group(1))
+        assert parsed["matched_total"] == 1
