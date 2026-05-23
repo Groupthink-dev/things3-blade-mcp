@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 from typing import Annotated
 
 import things
@@ -17,10 +18,12 @@ from pydantic import Field
 
 from things3_blade_mcp import applescript, url_scheme
 from things3_blade_mcp.formatters import (
+    append_meta,
     build_area_lookup,
     build_project_lookup,
     format_area_concise,
     format_area_detailed,
+    format_meta,
     format_project_concise,
     format_project_detailed,
     format_project_list,
@@ -96,6 +99,7 @@ def _normalise_title(title: str) -> str:
     by different dispatch runs with slightly different wording.
     """
     import re
+
     t = title.lower().strip()
     # Strip common action prefixes added by skills
     t = re.sub(r"^(review|pay|check|file|schedule|follow up|reply to|open|authorise|verify)\s*:\s*", "", t)
@@ -141,9 +145,7 @@ def _find_duplicate_todo(title: str) -> dict | None:
 def get_inbox(
     concise: Annotated[bool, Field(description="One-line-per-item output (default: true)")] = True,
     limit: Annotated[int, Field(description="Max items to return (default: 10)")] = DEFAULT_LIMIT,
-    include_details: Annotated[
-        bool, Field(description="Include notes, checklist, timestamps")
-    ] = False,
+    include_details: Annotated[bool, Field(description="Include notes, checklist, timestamps")] = False,
 ) -> str:
     """Get todos from the Things 3 Inbox.
 
@@ -154,8 +156,11 @@ def get_inbox(
     proj_lookup = _project_lookup() if not concise or include_details else None
     area_lk = _area_lookup() if include_details else None
     return format_todo_list(
-        items, concise=concise and not include_details, limit=limit,
-        project_lookup=proj_lookup, area_lookup=area_lk,
+        items,
+        concise=concise and not include_details,
+        limit=limit,
+        project_lookup=proj_lookup,
+        area_lookup=area_lk,
     )
 
 
@@ -163,9 +168,7 @@ def get_inbox(
 def get_today(
     concise: Annotated[bool, Field(description="One-line-per-item output (default: true)")] = True,
     limit: Annotated[int, Field(description="Max items to return (default: 10)")] = DEFAULT_LIMIT,
-    include_details: Annotated[
-        bool, Field(description="Include notes, checklist, timestamps")
-    ] = False,
+    include_details: Annotated[bool, Field(description="Include notes, checklist, timestamps")] = False,
 ) -> str:
     """Get todos scheduled for Today in Things 3.
 
@@ -178,8 +181,11 @@ def get_today(
     proj_lookup = _project_lookup() if not concise or include_details else None
     area_lk = _area_lookup() if include_details else None
     return format_todo_list(
-        items, concise=concise and not include_details, limit=limit,
-        project_lookup=proj_lookup, area_lookup=area_lk,
+        items,
+        concise=concise and not include_details,
+        limit=limit,
+        project_lookup=proj_lookup,
+        area_lookup=area_lk,
     )
 
 
@@ -187,9 +193,7 @@ def get_today(
 def get_upcoming(
     concise: Annotated[bool, Field(description="One-line-per-item output (default: true)")] = True,
     limit: Annotated[int, Field(description="Max items to return (default: 10)")] = DEFAULT_LIMIT,
-    include_details: Annotated[
-        bool, Field(description="Include notes, checklist, timestamps")
-    ] = False,
+    include_details: Annotated[bool, Field(description="Include notes, checklist, timestamps")] = False,
 ) -> str:
     """Get upcoming scheduled todos from Things 3.
 
@@ -201,8 +205,11 @@ def get_upcoming(
     proj_lookup = _project_lookup() if not concise or include_details else None
     area_lk = _area_lookup() if include_details else None
     return format_todo_list(
-        items, concise=concise and not include_details, limit=limit,
-        project_lookup=proj_lookup, area_lookup=area_lk,
+        items,
+        concise=concise and not include_details,
+        limit=limit,
+        project_lookup=proj_lookup,
+        area_lookup=area_lk,
     )
 
 
@@ -210,9 +217,7 @@ def get_upcoming(
 def get_anytime(
     concise: Annotated[bool, Field(description="One-line-per-item output (default: true)")] = True,
     limit: Annotated[int, Field(description="Max items to return (default: 10)")] = DEFAULT_LIMIT,
-    include_details: Annotated[
-        bool, Field(description="Include notes, checklist, timestamps")
-    ] = False,
+    include_details: Annotated[bool, Field(description="Include notes, checklist, timestamps")] = False,
 ) -> str:
     """Get Anytime todos from Things 3.
 
@@ -224,8 +229,11 @@ def get_anytime(
     proj_lookup = _project_lookup() if not concise or include_details else None
     area_lk = _area_lookup() if include_details else None
     return format_todo_list(
-        items, concise=concise and not include_details, limit=limit,
-        project_lookup=proj_lookup, area_lookup=area_lk,
+        items,
+        concise=concise and not include_details,
+        limit=limit,
+        project_lookup=proj_lookup,
+        area_lookup=area_lk,
     )
 
 
@@ -233,9 +241,7 @@ def get_anytime(
 def get_someday(
     concise: Annotated[bool, Field(description="One-line-per-item output (default: true)")] = True,
     limit: Annotated[int, Field(description="Max items to return (default: 10)")] = DEFAULT_LIMIT,
-    include_details: Annotated[
-        bool, Field(description="Include notes, checklist, timestamps")
-    ] = False,
+    include_details: Annotated[bool, Field(description="Include notes, checklist, timestamps")] = False,
 ) -> str:
     """Get Someday todos from Things 3.
 
@@ -248,16 +254,17 @@ def get_someday(
     proj_lookup = _project_lookup() if not concise or include_details else None
     area_lk = _area_lookup() if include_details else None
     return format_todo_list(
-        items, concise=concise and not include_details, limit=limit,
-        project_lookup=proj_lookup, area_lookup=area_lk,
+        items,
+        concise=concise and not include_details,
+        limit=limit,
+        project_lookup=proj_lookup,
+        area_lookup=area_lk,
     )
 
 
 @mcp.tool
 def get_logbook(
-    period: Annotated[
-        str, Field(description="Time period: '7d', '2w', '1m', '3m', '1y' (default: '7d')")
-    ] = "7d",
+    period: Annotated[str, Field(description="Time period: '7d', '2w', '1m', '3m', '1y' (default: '7d')")] = "7d",
     concise: Annotated[bool, Field(description="One-line-per-item output (default: true)")] = True,
     limit: Annotated[int, Field(description="Max items to return (default: 10)")] = DEFAULT_LIMIT,
 ) -> str:
@@ -303,87 +310,143 @@ def get_deadlines(
 
 @mcp.tool
 def get_random_inbox(
-    count: Annotated[
-        int, Field(description="Number of random items to sample (default: 5)")
-    ] = DEFAULT_SAMPLE_COUNT,
+    count: Annotated[int, Field(description="Number of random items to sample (default: 5)")] = DEFAULT_SAMPLE_COUNT,
 ) -> str:
     """Get a random sample from the Things 3 Inbox.
 
     RECOMMENDED as the first call when reviewing the inbox — returns a
     manageable batch instead of flooding context with hundreds of items.
     Always uses concise format for token efficiency.
+
+    DD-338 C W4: emits a ``_meta`` envelope describing the random-sample pool,
+    requested sample size, and latency. ``matched_total`` reports the
+    underlying inbox size; ``returned`` reports the sample size.
     """
+    filtered_by = sorted([f"count={count}", "pool=inbox", "sample=random"])
+    start = time.perf_counter()
     items = things.inbox(include_items=True) or []
     sampled = random_sample(items, count)
+    latency_ms = int((time.perf_counter() - start) * 1000)
     total = len(items)
     proj_lookup = _project_lookup()
     lines = [format_todo_concise(t, proj_lookup) for t in sampled]
     header = f"Random {len(sampled)} of {total} inbox items:"
-    return header + "\n" + "\n".join(lines)
+    payload = header + "\n" + "\n".join(lines)
+    meta = format_meta(
+        matched_total=total,
+        returned=len(sampled),
+        filtered_by=filtered_by,
+        redactions=[],
+        next_cursor=None,
+        latency_ms=latency_ms,
+    )
+    return append_meta(payload, meta)
 
 
 @mcp.tool
 def get_random_today(
-    count: Annotated[
-        int, Field(description="Number of random items to sample (default: 5)")
-    ] = DEFAULT_SAMPLE_COUNT,
+    count: Annotated[int, Field(description="Number of random items to sample (default: 5)")] = DEFAULT_SAMPLE_COUNT,
 ) -> str:
     """Get a random sample from Today in Things 3.
 
     Applies Someday filtering. Great for quick daily check-ins.
+
+    DD-338 C W4: emits a ``_meta`` envelope describing the random-sample pool,
+    the someday-exclusion filter, sample size, and latency. ``matched_total``
+    reports the post-someday-filter today size; ``returned`` reports the
+    sample size.
     """
+    filtered_by = sorted([f"count={count}", "filter=someday_excluded", "pool=today", "sample=random"])
+    start = time.perf_counter()
     items = things.today(include_items=True) or []
     ctx = get_someday_context()
     items = filter_someday_tasks(items, ctx)
     sampled = random_sample(items, count)
+    latency_ms = int((time.perf_counter() - start) * 1000)
     total = len(items)
     proj_lookup = _project_lookup()
     lines = [format_todo_concise(t, proj_lookup) for t in sampled]
     header = f"Random {len(sampled)} of {total} today items:"
-    return header + "\n" + "\n".join(lines)
+    payload = header + "\n" + "\n".join(lines)
+    meta = format_meta(
+        matched_total=total,
+        returned=len(sampled),
+        filtered_by=filtered_by,
+        redactions=[],
+        next_cursor=None,
+        latency_ms=latency_ms,
+    )
+    return append_meta(payload, meta)
 
 
 @mcp.tool
 def get_random_anytime(
-    count: Annotated[
-        int, Field(description="Number of random items to sample (default: 5)")
-    ] = DEFAULT_SAMPLE_COUNT,
+    count: Annotated[int, Field(description="Number of random items to sample (default: 5)")] = DEFAULT_SAMPLE_COUNT,
 ) -> str:
     """Get a random sample from Anytime in Things 3.
 
     Applies Someday filtering. Useful for finding tasks to work on next.
+
+    DD-338 C W4: emits a ``_meta`` envelope describing the random-sample pool,
+    the someday-exclusion filter, sample size, and latency.
     """
+    filtered_by = sorted([f"count={count}", "filter=someday_excluded", "pool=anytime", "sample=random"])
+    start = time.perf_counter()
     items = things.anytime(include_items=True) or []
     ctx = get_someday_context()
     items = filter_someday_tasks(items, ctx)
     sampled = random_sample(items, count)
+    latency_ms = int((time.perf_counter() - start) * 1000)
     total = len(items)
     proj_lookup = _project_lookup()
     lines = [format_todo_concise(t, proj_lookup) for t in sampled]
     header = f"Random {len(sampled)} of {total} anytime items:"
-    return header + "\n" + "\n".join(lines)
+    payload = header + "\n" + "\n".join(lines)
+    meta = format_meta(
+        matched_total=total,
+        returned=len(sampled),
+        filtered_by=filtered_by,
+        redactions=[],
+        next_cursor=None,
+        latency_ms=latency_ms,
+    )
+    return append_meta(payload, meta)
 
 
 @mcp.tool
 def get_random_todos(
-    project_uuid: Annotated[
-        str | None, Field(description="Filter to a specific project by UUID")
-    ] = None,
-    count: Annotated[
-        int, Field(description="Number of random items to sample (default: 5)")
-    ] = DEFAULT_SAMPLE_COUNT,
+    project_uuid: Annotated[str | None, Field(description="Filter to a specific project by UUID")] = None,
+    count: Annotated[int, Field(description="Number of random items to sample (default: 5)")] = DEFAULT_SAMPLE_COUNT,
 ) -> str:
     """Get a random sample of todos, optionally filtered by project.
 
     Use this for LLM enrichment workflows — review and improve tasks in batches.
+
+    DD-338 C W4: emits a ``_meta`` envelope describing the random-sample pool,
+    optional project scope, sample size, and latency.
     """
+    filtered_by = [f"count={count}", "sample=random"]
+    if project_uuid:
+        filtered_by.append(f"project_uuid={project_uuid}")
+    filtered_by.sort()
+    start = time.perf_counter()
     items = things.todos(project=project_uuid) or []
     sampled = random_sample(items, count)
+    latency_ms = int((time.perf_counter() - start) * 1000)
     total = len(items)
     proj_lookup = _project_lookup()
     lines = [format_todo_concise(t, proj_lookup) for t in sampled]
     header = f"Random {len(sampled)} of {total} todos:"
-    return header + "\n" + "\n".join(lines)
+    payload = header + "\n" + "\n".join(lines)
+    meta = format_meta(
+        matched_total=total,
+        returned=len(sampled),
+        filtered_by=filtered_by,
+        redactions=[],
+        next_cursor=None,
+        latency_ms=latency_ms,
+    )
+    return append_meta(payload, meta)
 
 
 # ===========================================================================
@@ -393,14 +456,10 @@ def get_random_todos(
 
 @mcp.tool
 def get_todos(
-    project_uuid: Annotated[
-        str | None, Field(description="Filter by project UUID")
-    ] = None,
+    project_uuid: Annotated[str | None, Field(description="Filter by project UUID")] = None,
     concise: Annotated[bool, Field(description="One-line-per-item output (default: true)")] = True,
     limit: Annotated[int, Field(description="Max items to return (default: 10)")] = DEFAULT_LIMIT,
-    include_details: Annotated[
-        bool, Field(description="Include notes, checklist, timestamps")
-    ] = False,
+    include_details: Annotated[bool, Field(description="Include notes, checklist, timestamps")] = False,
 ) -> str:
     """Get all open todos, optionally filtered by project.
 
@@ -410,8 +469,11 @@ def get_todos(
     proj_lookup = _project_lookup() if not concise or include_details else None
     area_lk = _area_lookup() if include_details else None
     return format_todo_list(
-        items, concise=concise and not include_details, limit=limit,
-        project_lookup=proj_lookup, area_lookup=area_lk,
+        items,
+        concise=concise and not include_details,
+        limit=limit,
+        project_lookup=proj_lookup,
+        area_lookup=area_lk,
     )
 
 
@@ -419,9 +481,7 @@ def get_todos(
 def get_projects(
     concise: Annotated[bool, Field(description="One-line-per-project output (default: true)")] = True,
     limit: Annotated[int, Field(description="Max items to return (default: 10)")] = DEFAULT_LIMIT,
-    include_items: Annotated[
-        bool, Field(description="Include task list inside each project")
-    ] = False,
+    include_items: Annotated[bool, Field(description="Include task list inside each project")] = False,
 ) -> str:
     """Get all active projects from Things 3.
 
@@ -431,8 +491,11 @@ def get_projects(
     todo_counts = _todo_counts_for_projects() if concise else None
     area_lk = _area_lookup() if not concise else None
     return format_project_list(
-        projects, concise=concise, limit=limit,
-        todo_counts=todo_counts, area_lookup=area_lk,
+        projects,
+        concise=concise,
+        limit=limit,
+        todo_counts=todo_counts,
+        area_lookup=area_lk,
     )
 
 
@@ -467,9 +530,7 @@ def get_areas(
 def get_tags(
     concise: Annotated[bool, Field(description="One-line-per-tag output (default: true)")] = True,
     limit: Annotated[int, Field(description="Max items to return (default: 10)")] = DEFAULT_LIMIT,
-    include_items: Annotated[
-        bool, Field(description="Include tagged items for each tag")
-    ] = False,
+    include_items: Annotated[bool, Field(description="Include tagged items for each tag")] = False,
 ) -> str:
     """Get all tags from Things 3."""
     tags = things.tags(include_items=include_items) or []
@@ -509,57 +570,94 @@ def search_todos(
     concise: Annotated[bool, Field(description="One-line-per-item output (default: true)")] = True,
     limit: Annotated[int, Field(description="Max items to return (default: 10)")] = DEFAULT_LIMIT,
 ) -> str:
-    """Search todos by title or notes content."""
+    """Search todos by title or notes content.
+
+    DD-338 C W4: emits a ``_meta`` envelope describing the search query,
+    requested limit, and latency. ``query=<verbatim>`` per OQ-7 architect
+    ratification (mastodon A.1 precedent). ``matched_total`` reports the
+    pre-limit search-result count; ``returned`` reports the truncated count.
+    """
+    filtered_by = sorted([f"limit={limit}", f"query={query}"])
+    start = time.perf_counter()
     items = things.search(query, include_items=True) or []
+    latency_ms = int((time.perf_counter() - start) * 1000)
     proj_lookup = _project_lookup() if not concise else None
-    return format_todo_list(items, concise=concise, limit=limit, project_lookup=proj_lookup)
+    payload = format_todo_list(items, concise=concise, limit=limit, project_lookup=proj_lookup)
+    total = len(items)
+    meta = format_meta(
+        matched_total=total,
+        returned=min(total, limit),
+        filtered_by=filtered_by,
+        redactions=[],
+        next_cursor=None,
+        latency_ms=latency_ms,
+    )
+    return append_meta(payload, meta)
 
 
 @mcp.tool
 def search_advanced(
-    status: Annotated[
-        str | None, Field(description="Filter: 'incomplete', 'completed', 'canceled'")
-    ] = None,
+    status: Annotated[str | None, Field(description="Filter: 'incomplete', 'completed', 'canceled'")] = None,
     start_date: Annotated[
         str | None, Field(description="Start date filter, e.g. '2026-01-01' or '>=2026-01-01'")
     ] = None,
-    deadline: Annotated[
-        str | None, Field(description="Deadline filter, e.g. '<=2026-03-01'")
-    ] = None,
+    deadline: Annotated[str | None, Field(description="Deadline filter, e.g. '<=2026-03-01'")] = None,
     tag: Annotated[str | None, Field(description="Filter by tag name")] = None,
     area: Annotated[str | None, Field(description="Filter by area UUID")] = None,
-    item_type: Annotated[
-        str | None, Field(description="Filter: 'to-do', 'project', 'heading'")
-    ] = None,
-    last: Annotated[
-        str | None, Field(description="Created within period: '3d', '1w', '2m'")
-    ] = None,
+    item_type: Annotated[str | None, Field(description="Filter: 'to-do', 'project', 'heading'")] = None,
+    last: Annotated[str | None, Field(description="Created within period: '3d', '1w', '2m'")] = None,
     concise: Annotated[bool, Field(description="One-line-per-item output (default: true)")] = True,
     limit: Annotated[int, Field(description="Max items to return (default: 10)")] = DEFAULT_LIMIT,
 ) -> str:
     """Advanced search with multiple filters.
 
     Combine any filters to narrow down results. All filters are AND-combined.
+
+    DD-338 C W4: emits a ``_meta`` envelope describing the non-null filter set,
+    requested limit, and latency. Filter values appear verbatim in
+    ``filtered_by`` (matches mastodon A.1 ``q=`` precedent — assembler-side
+    redaction policy belongs to DD-278 review queue, not the blade boundary).
     """
+    filtered_by: list[str] = [f"limit={limit}"]
     kwargs: dict = {}
     if status:
         kwargs["status"] = status
+        filtered_by.append(f"status={status}")
     if start_date:
         kwargs["start_date"] = start_date
+        filtered_by.append(f"start_date={start_date}")
     if deadline:
         kwargs["deadline"] = deadline
+        filtered_by.append(f"deadline={deadline}")
     if tag:
         kwargs["tag"] = tag
+        filtered_by.append(f"tag={tag}")
     if area:
         kwargs["area"] = area
+        filtered_by.append(f"area={area}")
     if item_type:
         kwargs["type"] = item_type
+        filtered_by.append(f"item_type={item_type}")
     if last:
         kwargs["last"] = last
+        filtered_by.append(f"last={last}")
+    filtered_by.sort()
 
+    start = time.perf_counter()
     items = things.todos(**kwargs) or []
+    latency_ms = int((time.perf_counter() - start) * 1000)
     proj_lookup = _project_lookup() if not concise else None
-    return format_todo_list(items, concise=concise, limit=limit, project_lookup=proj_lookup)
+    payload = format_todo_list(items, concise=concise, limit=limit, project_lookup=proj_lookup)
+    total = len(items)
+    meta = format_meta(
+        matched_total=total,
+        returned=min(total, limit),
+        filtered_by=filtered_by,
+        redactions=[],
+        next_cursor=None,
+        latency_ms=latency_ms,
+    )
+    return append_meta(payload, meta)
 
 
 @mcp.tool
@@ -577,9 +675,7 @@ def get_recent(
 @mcp.tool
 def show_item(
     uuid: Annotated[str, Field(description="UUID of the item to show (or built-in list name)")],
-    include_details: Annotated[
-        bool, Field(description="Include full details (default: true for single items)")
-    ] = True,
+    include_details: Annotated[bool, Field(description="Include full details (default: true for single items)")] = True,
 ) -> str:
     """Get a single item by UUID with full details.
 
@@ -629,6 +725,7 @@ def get_summary() -> str:
     # Deadlines in next 7 days
     deadlines = things.deadlines() or []
     from datetime import date, timedelta
+
     week_from_now = (date.today() + timedelta(days=7)).isoformat()
     urgent = [d for d in deadlines if d.get("deadline") and d["deadline"] <= week_from_now]
 
@@ -661,33 +758,27 @@ def get_summary() -> str:
 @mcp.tool
 def add_todo(
     title: Annotated[str, Field(description="Todo title")],
-    notes: Annotated[
-        str | None, Field(description="Notes (supports Markdown; use checkboxes for subtasks)")
-    ] = None,
+    notes: Annotated[str | None, Field(description="Notes (supports Markdown; use checkboxes for subtasks)")] = None,
     when: Annotated[
         str | None,
         Field(description="Schedule: 'today', 'tomorrow', 'evening', 'anytime', 'someday', or YYYY-MM-DD"),
     ] = None,
-    deadline: Annotated[
-        str | None, Field(description="Deadline date in YYYY-MM-DD format")
-    ] = None,
-    tags: Annotated[
-        list[str] | None, Field(description="List of tag names to apply")
-    ] = None,
+    deadline: Annotated[str | None, Field(description="Deadline date in YYYY-MM-DD format")] = None,
+    tags: Annotated[list[str] | None, Field(description="List of tag names to apply")] = None,
     list_id: Annotated[
         str | None, Field(description="UUID of project or area to add to (takes precedence over list_title)")
     ] = None,
-    list_title: Annotated[
-        str | None, Field(description="Name of project or area to add to")
-    ] = None,
+    list_title: Annotated[str | None, Field(description="Name of project or area to add to")] = None,
     checklist_items: Annotated[
         list[str] | None,
         Field(description="Subtask items (uses URL scheme fallback since AppleScript cannot create checklist items)"),
     ] = None,
     deduplicate: Annotated[
         bool,
-        Field(description="Check for existing open todos with similar titles before creating. "
-              "Returns existing todo instead of creating a duplicate. Default: true"),
+        Field(
+            description="Check for existing open todos with similar titles before creating. "
+            "Returns existing todo instead of creating a duplicate. Default: true"
+        ),
     ] = True,
 ) -> str:
     """Create a new todo in Things 3.
@@ -712,16 +803,26 @@ def add_todo(
     # If checklist_items requested, must use URL scheme (AppleScript can't do it)
     if checklist_items:
         result_url = url_scheme.add_todo_url(
-            title=title, notes=notes, when=when, deadline=deadline,
-            tags=tags, checklist_items=checklist_items,
-            list_id=list_id, list_title=list_title,
+            title=title,
+            notes=notes,
+            when=when,
+            deadline=deadline,
+            tags=tags,
+            checklist_items=checklist_items,
+            list_id=list_id,
+            list_title=list_title,
         )
         return f"Created todo '{title}' via URL scheme (checklist items included). URL: {result_url}"
 
     try:
         result = applescript.add_todo(
-            title=title, notes=notes, when=when, deadline=deadline,
-            tags=tags, list_id=list_id, list_title=list_title,
+            title=title,
+            notes=notes,
+            when=when,
+            deadline=deadline,
+            tags=tags,
+            list_id=list_id,
+            list_title=list_title,
         )
         if result.startswith("Error:"):
             raise RuntimeError(result)
@@ -729,8 +830,13 @@ def add_todo(
     except RuntimeError:
         logger.info("AppleScript failed, falling back to URL scheme")
         result_url = url_scheme.add_todo_url(
-            title=title, notes=notes, when=when, deadline=deadline,
-            tags=tags, list_id=list_id, list_title=list_title,
+            title=title,
+            notes=notes,
+            when=when,
+            deadline=deadline,
+            tags=tags,
+            list_id=list_id,
+            list_title=list_title,
         )
         return f"Created todo '{title}' via URL scheme (no UUID available)."
 
@@ -743,15 +849,11 @@ def add_project(
         str | None,
         Field(description="Schedule: 'today', 'tomorrow', 'anytime', 'someday', or YYYY-MM-DD"),
     ] = None,
-    deadline: Annotated[
-        str | None, Field(description="Deadline date in YYYY-MM-DD format")
-    ] = None,
+    deadline: Annotated[str | None, Field(description="Deadline date in YYYY-MM-DD format")] = None,
     tags: Annotated[list[str] | None, Field(description="List of tag names")] = None,
     area_id: Annotated[str | None, Field(description="UUID of area to assign to")] = None,
     area_title: Annotated[str | None, Field(description="Name of area to assign to")] = None,
-    todos: Annotated[
-        list[str] | None, Field(description="List of todo titles to create inside the project")
-    ] = None,
+    todos: Annotated[list[str] | None, Field(description="List of todo titles to create inside the project")] = None,
 ) -> str:
     """Create a new project in Things 3.
 
@@ -759,8 +861,14 @@ def add_project(
     """
     try:
         result = applescript.add_project(
-            title=title, notes=notes, when=when, deadline=deadline,
-            tags=tags, area_id=area_id, area_title=area_title, todos=todos,
+            title=title,
+            notes=notes,
+            when=when,
+            deadline=deadline,
+            tags=tags,
+            area_id=area_id,
+            area_title=area_title,
+            todos=todos,
         )
         if result.startswith("Error:"):
             raise RuntimeError(result)
@@ -768,8 +876,14 @@ def add_project(
     except RuntimeError:
         logger.info("AppleScript failed, falling back to URL scheme")
         url_scheme.add_project_url(
-            title=title, notes=notes, when=when, deadline=deadline,
-            tags=tags, area_id=area_id, area_title=area_title, todos=todos,
+            title=title,
+            notes=notes,
+            when=when,
+            deadline=deadline,
+            tags=tags,
+            area_id=area_id,
+            area_title=area_title,
+            todos=todos,
         )
         return f"Created project '{title}' via URL scheme (no UUID available)."
 
@@ -783,9 +897,7 @@ def update_todo(
         str | None,
         Field(description="Reschedule: 'today', 'tomorrow', 'anytime', 'someday', or YYYY-MM-DD"),
     ] = None,
-    deadline: Annotated[
-        str | None, Field(description="New deadline in YYYY-MM-DD format")
-    ] = None,
+    deadline: Annotated[str | None, Field(description="New deadline in YYYY-MM-DD format")] = None,
     tags: Annotated[list[str] | None, Field(description="Replace all tags")] = None,
     completed: Annotated[bool | None, Field(description="Mark completed (true) or reopen (false)")] = None,
     canceled: Annotated[bool | None, Field(description="Mark canceled (true) or reopen (false)")] = None,
@@ -799,9 +911,16 @@ def update_todo(
     """
     try:
         result = applescript.update_todo(
-            todo_id=todo_id, title=title, notes=notes, when=when,
-            deadline=deadline, tags=tags, completed=completed, canceled=canceled,
-            list_id=list_id, list_name=list_name,
+            todo_id=todo_id,
+            title=title,
+            notes=notes,
+            when=when,
+            deadline=deadline,
+            tags=tags,
+            completed=completed,
+            canceled=canceled,
+            list_id=list_id,
+            list_name=list_name,
         )
         if result.startswith("Error:"):
             raise RuntimeError(result)
@@ -809,9 +928,16 @@ def update_todo(
     except RuntimeError:
         logger.info("AppleScript failed, falling back to URL scheme")
         url_scheme.update_todo_url(
-            todo_id=todo_id, title=title, notes=notes, when=when,
-            deadline=deadline, tags=tags, completed=completed, canceled=canceled,
-            list_id=list_id, list_title=list_name,
+            todo_id=todo_id,
+            title=title,
+            notes=notes,
+            when=when,
+            deadline=deadline,
+            tags=tags,
+            completed=completed,
+            canceled=canceled,
+            list_id=list_id,
+            list_title=list_name,
         )
         return f"Updated todo {todo_id} via URL scheme."
 
@@ -825,9 +951,7 @@ def update_project(
         str | None,
         Field(description="Reschedule: 'today', 'tomorrow', 'anytime', 'someday', or YYYY-MM-DD"),
     ] = None,
-    deadline: Annotated[
-        str | None, Field(description="New deadline in YYYY-MM-DD format")
-    ] = None,
+    deadline: Annotated[str | None, Field(description="New deadline in YYYY-MM-DD format")] = None,
     tags: Annotated[list[str] | None, Field(description="Replace all tags")] = None,
     completed: Annotated[bool | None, Field(description="Mark completed (true) or reopen (false)")] = None,
     canceled: Annotated[bool | None, Field(description="Mark canceled (true) or reopen (false)")] = None,
@@ -840,9 +964,16 @@ def update_project(
     """
     try:
         result = applescript.update_project(
-            project_id=project_id, title=title, notes=notes, when=when,
-            deadline=deadline, tags=tags, completed=completed, canceled=canceled,
-            area_id=area_id, area_title=area_title,
+            project_id=project_id,
+            title=title,
+            notes=notes,
+            when=when,
+            deadline=deadline,
+            tags=tags,
+            completed=completed,
+            canceled=canceled,
+            area_id=area_id,
+            area_title=area_title,
         )
         if result.startswith("Error:"):
             raise RuntimeError(result)
@@ -850,9 +981,16 @@ def update_project(
     except RuntimeError:
         logger.info("AppleScript failed, falling back to URL scheme")
         url_scheme.update_project_url(
-            project_id=project_id, title=title, notes=notes, when=when,
-            deadline=deadline, tags=tags, completed=completed, canceled=canceled,
-            area_id=area_id, area_title=area_title,
+            project_id=project_id,
+            title=title,
+            notes=notes,
+            when=when,
+            deadline=deadline,
+            tags=tags,
+            completed=completed,
+            canceled=canceled,
+            area_id=area_id,
+            area_title=area_title,
         )
         return f"Updated project {project_id} via URL scheme."
 
@@ -909,7 +1047,7 @@ def json_import(
                 "JSON string: array of objects with {type, attributes}. "
                 "Types: 'to-do', 'project', 'heading'. "
                 "Attributes: title, notes, when, deadline, tags, checklist-items, list, heading. "
-                "Example: [{\"type\":\"to-do\",\"attributes\":{\"title\":\"Buy milk\",\"when\":\"today\"}}]"
+                'Example: [{"type":"to-do","attributes":{"title":"Buy milk","when":"today"}}]'
             )
         ),
     ],

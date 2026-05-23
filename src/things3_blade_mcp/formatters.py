@@ -9,6 +9,9 @@ Batch-lookup design: caller provides lookup dicts to avoid N+1 queries.
 
 from __future__ import annotations
 
+import json
+from typing import Any
+
 from things3_blade_mcp.models import SHORT_UUID_LEN, STATUS_ICONS
 
 # ---------------------------------------------------------------------------
@@ -326,3 +329,48 @@ def format_project_list(
     if total > len(shown):
         result += f"\n… {total - len(shown)} more (use limit= to see more)"
     return result
+
+
+# ---------------------------------------------------------------------------
+# DD-338 C W4 — `_meta` JSON-tail envelope (canonical wire shape parity with
+# mastodon-blade-mcp.formatters.format_meta / append_meta).
+# ---------------------------------------------------------------------------
+
+
+def format_meta(
+    matched_total: int,
+    returned: int,
+    filtered_by: list[str],
+    redactions: list[str] | None = None,
+    next_cursor: str | None = None,
+    latency_ms: int = 0,
+    error_notes: list[str] | None = None,
+) -> str:
+    """Render the canonical _meta JSON-tail block (DD-338 architect amendment).
+
+    Returns a single-line ``_meta: {...}`` string. Caller appends with ``\\n\\n``
+    separator after the existing formatted payload. Assembler regex is
+    ``\\n\\n_meta: (\\{.*\\})$`` -- the JSON value MUST be single-line.
+
+    Wire shape parity with mastodon-blade-mcp ``format_meta`` (canonical per
+    DD-338 A.1 architect amendment 2026-05-21). Things3 deliberately omits the
+    ``domain_hints`` parameter — no domain-hints substrate exists for this
+    blade yet (A.2.dom.c was mastodon-only); a future ``A.2.dom.<things3>``
+    wave can extend without breaking this signature.
+    """
+    payload: dict[str, Any] = {
+        "matched_total": int(matched_total),
+        "returned": int(returned),
+        "filtered_by": list(filtered_by),
+        "redactions": list(redactions or []),
+        "next_cursor": next_cursor,
+        "latency_ms": int(latency_ms),
+    }
+    if error_notes:
+        payload["error_notes"] = list(error_notes)
+    return "_meta: " + json.dumps(payload, ensure_ascii=False)
+
+
+def append_meta(payload: str, meta_block: str) -> str:
+    """Append a meta_block to an existing payload with the canonical separator."""
+    return f"{payload}\n\n{meta_block}"

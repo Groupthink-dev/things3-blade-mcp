@@ -1,6 +1,6 @@
 [project]
 name = "things3-blade-mcp"
-version = "0.1.2"
+version = "0.2.0"
 description = "Best-in-class MCP server for Things 3 — token-efficient, full CRUD, AppleScript + URL scheme"
 readme = "README.md"
 license = {text = "MIT"}
