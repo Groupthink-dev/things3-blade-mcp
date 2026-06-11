@@ -12,7 +12,16 @@ import re
 from unittest.mock import patch
 
 from things3_blade_mcp.server import (
+    add_project as _add_project,
+)
+from things3_blade_mcp.server import (
+    add_todo as _add_todo,
+)
+from things3_blade_mcp.server import (
     get_inbox as _get_inbox,
+)
+from things3_blade_mcp.server import (
+    get_logbook as _get_logbook,
 )
 from things3_blade_mcp.server import (
     get_random_anytime as _get_random_anytime,
@@ -36,6 +45,9 @@ from things3_blade_mcp.server import (
     json_export as _json_export,
 )
 from things3_blade_mcp.server import (
+    json_import as _json_import,
+)
+from things3_blade_mcp.server import (
     search_advanced as _search_advanced,
 )
 from things3_blade_mcp.server import (
@@ -43,6 +55,12 @@ from things3_blade_mcp.server import (
 )
 from things3_blade_mcp.server import (
     show_item as _show_item,
+)
+from things3_blade_mcp.server import (
+    update_project as _update_project,
+)
+from things3_blade_mcp.server import (
+    update_todo as _update_todo,
 )
 
 _W4_REQUIRED_META_KEYS = ("matched_total", "returned", "filtered_by", "redactions", "next_cursor", "latency_ms")
@@ -369,3 +387,152 @@ class TestW4SearchAdvanced:
         meta = _parse_meta(result)
         assert meta["matched_total"] == 15
         assert meta["returned"] == 5
+
+
+class TestGetLogbook:
+    """AUD-04-04 regression — get_logbook must query with status='completed'.
+
+    things.last() defaults to incomplete tasks only; a post-hoc completed
+    filter produces an empty intersection by construction. Assert the status
+    parameter is pushed into the library call so the bug cannot regress.
+    """
+
+    @patch("things3_blade_mcp.server.things")
+    def test_logbook_passes_completed_status_to_things_last(self, mock_things, mock_completed_todo):
+        mock_things.last.return_value = [mock_completed_todo]
+        result = _get_logbook(period="7d", concise=True, limit=10)
+        mock_things.last.assert_called_once_with("7d", status="completed")
+        assert "Filed taxes" in result
+
+    @patch("things3_blade_mcp.server.things")
+    def test_logbook_returns_completed_items_not_empty(self, mock_things, mock_completed_todo):
+        # With the pre-fix code, things.last (incomplete-by-default) followed by
+        # a completed-only filter returned [] for any real logbook.
+        mock_things.last.return_value = [mock_completed_todo]
+        result = _get_logbook(period="2w")
+        assert "No items found" not in result
+
+    @patch("things3_blade_mcp.server.things")
+    def test_logbook_empty_period(self, mock_things):
+        mock_things.last.return_value = []
+        result = _get_logbook(period="7d")
+        assert "No items found" in result
+
+
+class TestWriteGate:
+    """AUD-04-18 — mutating tools refuse unless THINGS_WRITE_ENABLED=true."""
+
+    @patch("things3_blade_mcp.server.applescript")
+    @patch("things3_blade_mcp.server.things")
+    def test_add_todo_refused_when_gate_off(self, mock_things, mock_applescript, monkeypatch):
+        monkeypatch.delenv("THINGS_WRITE_ENABLED", raising=False)
+        result = _add_todo(title="New task")
+        assert "Write operations are disabled" in result
+        mock_applescript.add_todo.assert_not_called()
+
+    @patch("things3_blade_mcp.server.applescript")
+    def test_add_todo_refused_when_gate_false(self, mock_applescript, monkeypatch):
+        monkeypatch.setenv("THINGS_WRITE_ENABLED", "false")
+        result = _add_todo(title="New task")
+        assert "Write operations are disabled" in result
+        mock_applescript.add_todo.assert_not_called()
+
+    @patch("things3_blade_mcp.server.applescript")
+    def test_add_project_refused_when_gate_off(self, mock_applescript, monkeypatch):
+        monkeypatch.delenv("THINGS_WRITE_ENABLED", raising=False)
+        result = _add_project(title="New project")
+        assert "Write operations are disabled" in result
+        mock_applescript.add_project.assert_not_called()
+
+    @patch("things3_blade_mcp.server.applescript")
+    def test_update_todo_refused_when_gate_off(self, mock_applescript, monkeypatch):
+        monkeypatch.delenv("THINGS_WRITE_ENABLED", raising=False)
+        result = _update_todo(todo_id="abc-123", completed=True)
+        assert "Write operations are disabled" in result
+        mock_applescript.update_todo.assert_not_called()
+
+    @patch("things3_blade_mcp.server.applescript")
+    def test_update_project_refused_when_gate_off(self, mock_applescript, monkeypatch):
+        monkeypatch.delenv("THINGS_WRITE_ENABLED", raising=False)
+        result = _update_project(project_id="proj-123", title="Renamed")
+        assert "Write operations are disabled" in result
+        mock_applescript.update_project.assert_not_called()
+
+    @patch("things3_blade_mcp.server.url_scheme")
+    def test_json_import_refused_when_gate_off(self, mock_url_scheme, monkeypatch):
+        monkeypatch.delenv("THINGS_WRITE_ENABLED", raising=False)
+        result = _json_import(data='[{"type":"to-do","attributes":{"title":"x"}}]', confirm=True)
+        assert "Write operations are disabled" in result
+        mock_url_scheme.json_import.assert_not_called()
+
+    @patch("things3_blade_mcp.server.things")
+    def test_json_export_remains_ungated_read(self, mock_things, monkeypatch):
+        monkeypatch.delenv("THINGS_WRITE_ENABLED", raising=False)
+        mock_things.todos.return_value = []
+        result = _json_export()
+        assert "Write operations are disabled" not in result
+
+    @patch("things3_blade_mcp.server.applescript")
+    @patch("things3_blade_mcp.server.things")
+    def test_add_todo_works_when_gate_on(self, mock_things, mock_applescript, monkeypatch):
+        monkeypatch.setenv("THINGS_WRITE_ENABLED", "true")
+        mock_things.search.return_value = []
+        mock_applescript.add_todo.return_value = "NEW-UUID-123"
+        result = _add_todo(title="New task")
+        assert "Created todo 'New task'" in result
+        mock_applescript.add_todo.assert_called_once()
+
+    @patch("things3_blade_mcp.server.applescript")
+    def test_update_todo_complete_works_when_gate_on(self, mock_applescript, monkeypatch):
+        monkeypatch.setenv("THINGS_WRITE_ENABLED", "true")
+        mock_applescript.update_todo.return_value = "OK"
+        result = _update_todo(todo_id="abc-123", completed=True)
+        assert "Updated todo abc-123" in result
+        mock_applescript.update_todo.assert_called_once()
+
+
+class TestConfirmGate:
+    """AUD-04-18 — destructive/bulk operations additionally require confirm=true."""
+
+    @patch("things3_blade_mcp.server.applescript")
+    def test_cancel_todo_requires_confirm(self, mock_applescript, monkeypatch):
+        monkeypatch.setenv("THINGS_WRITE_ENABLED", "true")
+        result = _update_todo(todo_id="abc-123", canceled=True)
+        assert "requires explicit confirmation" in result
+        mock_applescript.update_todo.assert_not_called()
+
+    @patch("things3_blade_mcp.server.applescript")
+    def test_cancel_todo_with_confirm_proceeds(self, mock_applescript, monkeypatch):
+        monkeypatch.setenv("THINGS_WRITE_ENABLED", "true")
+        mock_applescript.update_todo.return_value = "OK"
+        result = _update_todo(todo_id="abc-123", canceled=True, confirm=True)
+        assert "Updated todo abc-123" in result
+        mock_applescript.update_todo.assert_called_once()
+
+    @patch("things3_blade_mcp.server.applescript")
+    def test_non_cancel_update_needs_no_confirm(self, mock_applescript, monkeypatch):
+        monkeypatch.setenv("THINGS_WRITE_ENABLED", "true")
+        mock_applescript.update_todo.return_value = "OK"
+        result = _update_todo(todo_id="abc-123", when="tomorrow")
+        assert "Updated todo abc-123" in result
+
+    @patch("things3_blade_mcp.server.applescript")
+    def test_cancel_project_requires_confirm(self, mock_applescript, monkeypatch):
+        monkeypatch.setenv("THINGS_WRITE_ENABLED", "true")
+        result = _update_project(project_id="proj-123", canceled=True)
+        assert "requires explicit confirmation" in result
+        mock_applescript.update_project.assert_not_called()
+
+    @patch("things3_blade_mcp.server.url_scheme")
+    def test_json_import_requires_confirm(self, mock_url_scheme, monkeypatch):
+        monkeypatch.setenv("THINGS_WRITE_ENABLED", "true")
+        result = _json_import(data='[{"type":"to-do","attributes":{"title":"x"}}]')
+        assert "requires explicit confirmation" in result
+        mock_url_scheme.json_import.assert_not_called()
+
+    @patch("things3_blade_mcp.server.url_scheme")
+    def test_json_import_with_confirm_proceeds(self, mock_url_scheme, monkeypatch):
+        monkeypatch.setenv("THINGS_WRITE_ENABLED", "true")
+        result = _json_import(data='[{"type":"to-do","attributes":{"title":"x"}}]', confirm=True)
+        assert "Imported 1 items" in result
+        mock_url_scheme.json_import.assert_called_once()

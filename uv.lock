@@ -1339,7 +1339,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/8a/f7/7ca01abf3927ed680
 
 [[package]]
 name = "things3-blade-mcp"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastmcp" },

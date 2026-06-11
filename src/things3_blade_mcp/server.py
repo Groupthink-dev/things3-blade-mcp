@@ -32,7 +32,12 @@ from things3_blade_mcp.formatters import (
     format_todo_detailed,
     format_todo_list,
 )
-from things3_blade_mcp.models import DEFAULT_LIMIT, DEFAULT_SAMPLE_COUNT
+from things3_blade_mcp.models import (
+    DEFAULT_LIMIT,
+    DEFAULT_SAMPLE_COUNT,
+    check_confirm_gate,
+    check_write_gate,
+)
 from things3_blade_mcp.sampling import random_sample
 from things3_blade_mcp.someday import augment_someday_tasks, filter_someday_tasks, get_someday_context
 
@@ -55,7 +60,9 @@ mcp = FastMCP(
     instructions=(
         "Things 3 task manager integration. Use concise=True (default) for token efficiency. "
         "Start with get_random_* or get_summary for overviews before requesting full lists. "
-        "Use limit= to control output size. See SKILL.md for optimal workflows."
+        "Use limit= to control output size. See SKILL.md for optimal workflows. "
+        "Write operations require THINGS_WRITE_ENABLED=true; destructive/bulk operations "
+        "(cancel, json_import) also require confirm=true."
     ),
 )
 
@@ -272,8 +279,10 @@ def get_logbook(
 
     Shows recently completed tasks within the given time period.
     """
-    items = things.last(period) or []
-    items = [t for t in items if t.get("status") == "completed"]
+    # AUD-04-04: things.last() defaults to incomplete tasks only — the status
+    # must be pushed into the query, or the completed-filter intersection is
+    # empty by construction.
+    items = things.last(period, status="completed") or []
     proj_lookup = _project_lookup() if not concise else None
     return format_todo_list(items, concise=concise, limit=limit, project_lookup=proj_lookup)
 
@@ -781,7 +790,7 @@ def add_todo(
         ),
     ] = True,
 ) -> str:
-    """Create a new todo in Things 3.
+    """Create a new todo in Things 3. Requires THINGS_WRITE_ENABLED=true.
 
     Returns the UUID of the created todo. Uses AppleScript for reliability;
     falls back to URL scheme if AppleScript fails.
@@ -789,6 +798,10 @@ def add_todo(
     Tip: For subtasks, either pass checklist_items (URL scheme) or put Markdown
     checkboxes in notes: '- [ ] subtask 1\\n- [ ] subtask 2'
     """
+    gate = check_write_gate()
+    if gate:
+        return gate
+
     # Dedup check: search for existing open todos with similar titles
     if deduplicate:
         existing = _find_duplicate_todo(title)
@@ -855,10 +868,14 @@ def add_project(
     area_title: Annotated[str | None, Field(description="Name of area to assign to")] = None,
     todos: Annotated[list[str] | None, Field(description="List of todo titles to create inside the project")] = None,
 ) -> str:
-    """Create a new project in Things 3.
+    """Create a new project in Things 3. Requires THINGS_WRITE_ENABLED=true.
 
     Returns the UUID of the created project. Optionally include initial todos.
     """
+    gate = check_write_gate()
+    if gate:
+        return gate
+
     try:
         result = applescript.add_project(
             title=title,
@@ -903,12 +920,22 @@ def update_todo(
     canceled: Annotated[bool | None, Field(description="Mark canceled (true) or reopen (false)")] = None,
     list_id: Annotated[str | None, Field(description="Move to project/area by UUID")] = None,
     list_name: Annotated[str | None, Field(description="Move to project/area by name")] = None,
+    confirm: Annotated[bool, Field(description="Must be true when canceling (canceled=true)")] = False,
 ) -> str:
-    """Update an existing todo in Things 3.
+    """Update an existing todo in Things 3. Requires THINGS_WRITE_ENABLED=true.
 
     Uses AppleScript (no auth token needed). Falls back to URL scheme if needed.
-    Pass only the fields you want to change.
+    Pass only the fields you want to change. Canceling (canceled=true) is
+    destructive and additionally requires confirm=true.
     """
+    gate = check_write_gate()
+    if gate:
+        return gate
+    if canceled:
+        conf = check_confirm_gate(confirm, "Canceling a todo")
+        if conf:
+            return conf
+
     try:
         result = applescript.update_todo(
             todo_id=todo_id,
@@ -957,11 +984,21 @@ def update_project(
     canceled: Annotated[bool | None, Field(description="Mark canceled (true) or reopen (false)")] = None,
     area_id: Annotated[str | None, Field(description="Move to area by UUID")] = None,
     area_title: Annotated[str | None, Field(description="Move to area by name")] = None,
+    confirm: Annotated[bool, Field(description="Must be true when canceling (canceled=true)")] = False,
 ) -> str:
-    """Update an existing project in Things 3.
+    """Update an existing project in Things 3. Requires THINGS_WRITE_ENABLED=true.
 
     Uses AppleScript (no auth token needed). Falls back to URL scheme if needed.
+    Canceling (canceled=true) is destructive and additionally requires confirm=true.
     """
+    gate = check_write_gate()
+    if gate:
+        return gate
+    if canceled:
+        conf = check_confirm_gate(confirm, "Canceling a project")
+        if conf:
+            return conf
+
     try:
         result = applescript.update_project(
             project_id=project_id,
@@ -1052,12 +1089,23 @@ def json_import(
         ),
     ],
     reveal: Annotated[bool, Field(description="Show first created item in Things")] = False,
+    confirm: Annotated[bool, Field(description="Must be true to run the bulk import")] = False,
 ) -> str:
     """Bulk import todos and projects via Things JSON format.
+
+    Requires THINGS_WRITE_ENABLED=true AND confirm=true (bulk operation —
+    up to 250 items per 10 seconds).
 
     Accepts the Things URL scheme JSON format. Supports nested projects with
     headings and todos. Rate limit: 250 items per 10 seconds.
     """
+    gate = check_write_gate()
+    if gate:
+        return gate
+    conf = check_confirm_gate(confirm, "Bulk JSON import")
+    if conf:
+        return conf
+
     try:
         parsed = json.loads(data)
     except json.JSONDecodeError as e:
