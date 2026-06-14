@@ -93,6 +93,25 @@ def mock_completed_todo():
 
 
 @pytest.fixture
+def mock_completed_todo_old_created():
+    """Completed recently (recent stop_date) but created long ago.
+
+    AUD-04-04: proves get_logbook filters on completion (stop) date, not
+    creation date — this row must be reachable even though ``created`` predates
+    the window by months.
+    """
+    return {
+        "uuid": "OLD12345-6789-90AB-CDEF-1234567890AB",
+        "type": "to-do",
+        "title": "Long-running task",
+        "status": "completed",
+        "stop_date": "2026-06-13",
+        "created": "2025-12-01T09:00:00",
+        "tags": ["finance"],
+    }
+
+
+@pytest.fixture
 def project_lookup():
     """Pre-built project lookup dict."""
     return {"PROJ1234-5678-90AB-CDEF-1234567890AB": "Home Renovation"}

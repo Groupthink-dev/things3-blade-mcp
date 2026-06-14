@@ -7,6 +7,7 @@ wrapping in a FunctionTool object). We call the functions directly.
 
 from __future__ import annotations
 
+import datetime as _dt
 import json
 import re
 from unittest.mock import patch
@@ -390,31 +391,74 @@ class TestW4SearchAdvanced:
 
 
 class TestGetLogbook:
-    """AUD-04-04 regression — get_logbook must query with status='completed'.
+    """AUD-04-04 regression — get_logbook queries the Logbook by completion
+    (stop) date over the requested window, supports all advertised periods
+    (d/w/m/y), newest-completed first.
 
-    things.last() defaults to incomplete tasks only; a post-hoc completed
-    filter produces an empty intersection by construction. Assert the status
-    parameter is pushed into the library call so the bug cannot regress.
+    The pre-fix code called ``things.last(period, status="completed")``, which
+    filters by CREATION date (so a task created long ago but completed yesterday
+    was dropped) and raises ``ValueError`` for month suffixes ('1m'/'3m').  The
+    fix queries ``things.completed(stop_date=">=<cutoff>")`` with a locally
+    computed cutoff.
     """
 
+    @patch("things3_blade_mcp.server.date")
     @patch("things3_blade_mcp.server.things")
-    def test_logbook_passes_completed_status_to_things_last(self, mock_things, mock_completed_todo):
-        mock_things.last.return_value = [mock_completed_todo]
+    def test_logbook_queries_completed_by_stop_date(self, mock_things, mock_date, mock_completed_todo):
+        mock_date.today.return_value = _dt.date(2026, 6, 14)
+        mock_things.completed.return_value = [mock_completed_todo]
         result = _get_logbook(period="7d", concise=True, limit=10)
-        mock_things.last.assert_called_once_with("7d", status="completed")
+        expected = (_dt.date(2026, 6, 14) - _dt.timedelta(days=7)).isoformat()
+        mock_things.completed.assert_called_once_with(stop_date=f">={expected}")
+        mock_things.last.assert_not_called()
         assert "Filed taxes" in result
 
+    @patch("things3_blade_mcp.server.date")
     @patch("things3_blade_mcp.server.things")
-    def test_logbook_returns_completed_items_not_empty(self, mock_things, mock_completed_todo):
-        # With the pre-fix code, things.last (incomplete-by-default) followed by
-        # a completed-only filter returned [] for any real logbook.
-        mock_things.last.return_value = [mock_completed_todo]
-        result = _get_logbook(period="2w")
-        assert "No items found" not in result
+    def test_logbook_newest_completion_first(self, mock_things, mock_date):
+        mock_date.today.return_value = _dt.date(2026, 6, 14)
+        older = {"uuid": "A", "type": "to-do", "title": "Older done", "status": "completed", "stop_date": "2026-06-08"}
+        newer = {"uuid": "B", "type": "to-do", "title": "Newer done", "status": "completed", "stop_date": "2026-06-13"}
+        # Feed in ascending order; the tool must re-sort to newest-completion first.
+        mock_things.completed.return_value = [older, newer]
+        result = _get_logbook(period="2w", concise=True, limit=10)
+        assert result.index("Newer done") < result.index("Older done")
 
+    @patch("things3_blade_mcp.server.date")
     @patch("things3_blade_mcp.server.things")
-    def test_logbook_empty_period(self, mock_things):
-        mock_things.last.return_value = []
+    def test_logbook_includes_old_created_recent_stop(self, mock_things, mock_date, mock_completed_todo_old_created):
+        # The residual AUD-04-04 defect: a row created months ago but completed
+        # inside the window must be reachable — proves the created→stop axis fix.
+        mock_date.today.return_value = _dt.date(2026, 6, 14)
+        mock_things.completed.return_value = [mock_completed_todo_old_created]
+        result = _get_logbook(period="7d")
+        expected = (_dt.date(2026, 6, 14) - _dt.timedelta(days=7)).isoformat()
+        mock_things.completed.assert_called_once_with(stop_date=f">={expected}")
+        mock_things.last.assert_not_called()
+        assert "Long-running task" in result
+
+    @patch("things3_blade_mcp.server.date")
+    @patch("things3_blade_mcp.server.things")
+    def test_logbook_month_periods_do_not_raise(self, mock_things, mock_date):
+        # '1m' / '3m' raised ValueError pre-fix (validate_offset rejects month
+        # suffixes); the local cutoff computation must accept them.
+        mock_date.today.return_value = _dt.date(2026, 6, 14)
+        mock_things.completed.return_value = []
+
+        _get_logbook(period="1m")
+        expected_1m = (_dt.date(2026, 6, 14) - _dt.timedelta(days=30)).isoformat()
+        mock_things.completed.assert_called_once_with(stop_date=f">={expected_1m}")
+
+        mock_things.completed.reset_mock()
+        _get_logbook(period="3m")
+        expected_3m = (_dt.date(2026, 6, 14) - _dt.timedelta(days=90)).isoformat()
+        mock_things.completed.assert_called_once_with(stop_date=f">={expected_3m}")
+
+    @patch("things3_blade_mcp.server.date")
+    @patch("things3_blade_mcp.server.things")
+    def test_logbook_empty_period(self, mock_things, mock_date):
+        mock_date.today.return_value = _dt.date(2026, 6, 14)
+        mock_things.completed.return_value = []
         result = _get_logbook(period="7d")
         assert "No items found" in result
 
