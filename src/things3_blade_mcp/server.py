@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import time
+from datetime import date, timedelta
 from typing import Annotated
 
 import things
@@ -269,6 +270,38 @@ def get_someday(
     )
 
 
+# AUD-04-04: completion-date window for the Logbook. Approximate day-multiples —
+# months/years do not need calendar-exact boundaries for a logbook window, and the
+# stdlib has no calendar-aware offset (pyproject carries no dateutil).
+_PERIOD_DAYS = {"d": 1, "w": 7, "m": 30, "y": 365}
+
+
+def _period_to_cutoff(period: str) -> str:
+    """Convert a '<int><suffix>' period to an ISO completion-date cutoff.
+
+    Supports suffixes d/w/m/y. Months ('m') and years ('y') use approximate
+    30-/365-day multiples. Raises ``ValueError`` on an unknown suffix or a
+    non-integer count — computing the cutoff locally avoids handing month
+    suffixes to ``things.last``/``validate_offset`` (which only accept d/w/y
+    and raise for '1m'/'3m').
+    """
+    period = period.strip()
+    suffix = period[-1:].lower()
+    if suffix not in _PERIOD_DAYS:
+        raise ValueError(
+            f"Invalid period {period!r}: expected '<int><suffix>' with suffix in "
+            "d/w/m/y (e.g. '7d', '2w', '1m', '1y')"
+        )
+    try:
+        n = int(period[:-1])
+    except ValueError as exc:
+        raise ValueError(
+            f"Invalid period {period!r}: expected an integer before the suffix (e.g. '7d')"
+        ) from exc
+    cutoff = date.today() - timedelta(days=n * _PERIOD_DAYS[suffix])
+    return cutoff.isoformat()
+
+
 @mcp.tool
 def get_logbook(
     period: Annotated[str, Field(description="Time period: '7d', '2w', '1m', '3m', '1y' (default: '7d')")] = "7d",
@@ -277,12 +310,19 @@ def get_logbook(
 ) -> str:
     """Get completed todos from the Things 3 Logbook.
 
-    Shows recently completed tasks within the given time period.
+    Shows tasks completed within the given time period, newest completion first.
+    Filtering is by completion (stop) date — a task completed yesterday is
+    included even if it was created months ago. Month ('m') and year ('y')
+    windows use approximate 30-/365-day multiples.
     """
-    # AUD-04-04: things.last() defaults to incomplete tasks only — the status
-    # must be pushed into the query, or the completed-filter intersection is
-    # empty by construction.
-    items = things.last(period, status="completed") or []
+    # AUD-04-04: query by completion (stop) date, not creation date.
+    # things.last() filters by DATE_CREATED and rejects month suffixes
+    # ('1m'/'3m' raise in validate_offset). things.completed(stop_date=...) is
+    # the correct source and mirrors the native Things Logbook (ordered by
+    # stop_date, newest first).
+    cutoff = _period_to_cutoff(period)
+    items = things.completed(stop_date=f">={cutoff}") or []
+    items.sort(key=lambda t: t.get("stop_date") or "", reverse=True)
     proj_lookup = _project_lookup() if not concise else None
     return format_todo_list(items, concise=concise, limit=limit, project_lookup=proj_lookup)
 
